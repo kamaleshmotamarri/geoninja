@@ -493,7 +493,7 @@
         <ul style="text-align:left; margin: 16px 0 24px 0; padding-left: 20px; line-height: 1.8; color: var(--text-secondary); font-size: 15px;">
           <li><strong style="color: var(--accent);">Slice fruits</strong> to increase your score and keep them from falling</li>
           <li><strong style="color: var(--danger);">Avoid bombs</strong> - hitting one triggers a geography quiz</li>
-          <li><strong style="color: var(--warning);">Missing fruits</strong> costs lives - you have 3 to start</li>
+          <li><strong style="color: var(--warning);">Missing fruits</strong> costs lives - you have 7 to start</li>
           <li><strong style="color: var(--success);">Answer correctly</strong> in the quiz to continue playing</li>
           <li><strong style="color: var(--danger);">Wrong answer</strong> ends the game immediately</li>
         </ul>
@@ -592,7 +592,7 @@
     let pausedForQuiz = false;
     let gameOver = false;
     let score = 0;
-    let lives = 3;
+    let lives = 7;
     let lastSpawnAt = 0;
     let spawnIntervalMs = 850;
     let lastT = 0;
@@ -1240,7 +1240,7 @@
       particles = [];
       scorePopups = [];
       score = 0;
-      lives = 3;
+      lives = 7;
       combo = 0;
       maxCombo = 0;
       streak = 0;
