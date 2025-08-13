@@ -1,0 +1,1113 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Fruit Ninja with Geography Quiz</title>
+  <link rel="icon" type="image/png" href="geoninja.png" />
+  <link rel="shortcut icon" type="image/png" href="geoninja.png" />
+  <link rel="apple-touch-icon" href="geoninja.png" />
+  <style>
+    :root {
+      --bg: #0a0e1a;
+      --panel: #1a1f2e;
+      --panel-hover: #222736;
+      --accent: #00d4ff;
+      --accent-glow: rgba(0, 212, 255, 0.3);
+      --accent-2: #ff6b35;
+      --success: #00ff88;
+      --danger: #ff4757;
+      --warning: #ffa502;
+      --text: #ffffff;
+      --text-secondary: #b8c5d6;
+      --muted: #64748b;
+      --shadow: rgba(0,0,0,0.4);
+      --glass: rgba(255,255,255,0.05);
+      --glass-border: rgba(255,255,255,0.1);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html, body {
+      margin: 0;
+      height: 100%;
+      background: 
+        radial-gradient(ellipse 800px 600px at 50% 0%, rgba(0, 212, 255, 0.15) 0%, transparent 50%),
+        radial-gradient(ellipse 600px 400px at 80% 100%, rgba(255, 107, 53, 0.1) 0%, transparent 50%),
+        linear-gradient(135deg, #0a0e1a 0%, #1a1f2e 50%, #0a0e1a 100%);
+      color: var(--text);
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      overflow: hidden;
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    @keyframes float {
+      0%, 100% { transform: translateY(0px); }
+      50% { transform: translateY(-10px); }
+    }
+
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); opacity: 1; }
+      50% { transform: scale(1.05); opacity: 0.8; }
+    }
+
+    @keyframes slideIn {
+      from { transform: translateY(30px); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+
+    @keyframes glow {
+      0%, 100% { box-shadow: 0 0 20px var(--accent-glow); }
+      50% { box-shadow: 0 0 40px var(--accent-glow), 0 0 60px var(--accent-glow); }
+    }
+
+    @keyframes shake {
+      0%, 100% { transform: translateX(0); }
+      25% { transform: translateX(-5px); }
+      75% { transform: translateX(5px); }
+    }
+
+    @keyframes scorePopup {
+      0% { transform: scale(0) translateY(0); opacity: 0; }
+      50% { transform: scale(1.2) translateY(-20px); opacity: 1; }
+      100% { transform: scale(1) translateY(-40px); opacity: 0; }
+    }
+
+    #gameRoot {
+      position: relative;
+      width: 100vw;
+      height: 100vh;
+    }
+
+    canvas {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      display: block;
+      filter: drop-shadow(0 0 20px rgba(0, 212, 255, 0.1));
+    }
+
+    .hud {
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      right: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      pointer-events: none;
+      z-index: 100;
+    }
+
+    .badge {
+      background: linear-gradient(135deg, var(--glass), rgba(26, 31, 46, 0.8));
+      backdrop-filter: blur(20px);
+      border: 1px solid var(--glass-border);
+      color: var(--text);
+      padding: 12px 20px;
+      border-radius: 16px;
+      box-shadow: 
+        0 8px 32px var(--shadow),
+        inset 0 1px 0 rgba(255,255,255,0.1),
+        0 0 0 1px rgba(255,255,255,0.05);
+      font-weight: 700;
+      font-size: 14px;
+      letter-spacing: 0.5px;
+      min-width: 140px;
+      text-align: center;
+      transition: all 0.3s ease;
+      animation: slideIn 0.6s ease-out;
+    }
+
+    .badge:hover {
+      transform: translateY(-2px);
+      box-shadow: 
+        0 12px 40px var(--shadow),
+        inset 0 1px 0 rgba(255,255,255,0.15),
+        0 0 0 1px rgba(255,255,255,0.1);
+    }
+
+    .badge .value { 
+      color: var(--accent); 
+      font-size: 18px;
+      font-weight: 800;
+      text-shadow: 0 0 10px var(--accent-glow);
+    }
+    
+    .badge .danger { 
+      color: var(--danger); 
+      font-size: 18px;
+      font-weight: 800;
+      text-shadow: 0 0 10px rgba(255, 71, 87, 0.5);
+    }
+
+    .badge .label {
+      color: var(--text-secondary);
+      font-size: 12px;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 4px;
+      display: block;
+    }
+
+    .score-popup {
+      position: absolute;
+      pointer-events: none;
+      font-weight: 800;
+      font-size: 24px;
+      color: var(--accent);
+      text-shadow: 0 0 10px var(--accent-glow);
+      animation: scorePopup 1s ease-out forwards;
+      z-index: 200;
+    }
+
+    .center-ui {
+      position: absolute;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      pointer-events: none;
+      z-index: 50;
+    }
+
+    .panel {
+      pointer-events: auto;
+      background: linear-gradient(135deg, var(--glass), rgba(26, 31, 46, 0.9));
+      backdrop-filter: blur(30px);
+      border: 1px solid var(--glass-border);
+      padding: 32px;
+      border-radius: 24px;
+      box-shadow: 
+        0 20px 60px var(--shadow),
+        inset 0 1px 0 rgba(255,255,255,0.1),
+        0 0 0 1px rgba(255,255,255,0.05);
+      min-width: 320px;
+      max-width: min(92vw, 560px);
+      text-align: center;
+      animation: slideIn 0.8s ease-out;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .panel::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, var(--accent), transparent);
+      opacity: 0.3;
+    }
+
+    .title {
+      margin: 0 0 12px 0;
+      font-size: 32px;
+      font-weight: 900;
+      letter-spacing: -0.5px;
+      background: linear-gradient(135deg, var(--text), var(--accent));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      text-shadow: 0 0 30px var(--accent-glow);
+    }
+
+    .subtitle {
+      margin: 0 0 24px 0;
+      color: var(--text-secondary);
+      font-size: 16px;
+      line-height: 1.6;
+      font-weight: 400;
+    }
+
+    .row { 
+      display: flex; 
+      gap: 12px; 
+      justify-content: center; 
+      flex-wrap: wrap; 
+      margin-top: 8px;
+    }
+
+    .btn {
+      background: linear-gradient(135deg, var(--accent), #0099cc);
+      border: none;
+      color: white;
+      font-weight: 700;
+      font-size: 14px;
+      padding: 14px 24px;
+      border-radius: 12px;
+      cursor: pointer;
+      box-shadow: 
+        0 8px 24px rgba(0, 212, 255, 0.3),
+        inset 0 1px 0 rgba(255,255,255,0.2);
+      transition: all 0.3s ease;
+      position: relative;
+      overflow: hidden;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      min-width: 120px;
+    }
+
+    .btn::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: -100%;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+      transition: left 0.5s ease;
+    }
+
+    .btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 
+        0 12px 32px rgba(0, 212, 255, 0.4),
+        inset 0 1px 0 rgba(255,255,255,0.3);
+      animation: glow 2s ease-in-out infinite;
+    }
+
+    .btn:hover::before {
+      left: 100%;
+    }
+
+    .btn:active { 
+      transform: translateY(0) scale(0.98); 
+    }
+
+    .btn.secondary { 
+      background: linear-gradient(135deg, var(--accent-2), #e55a2b);
+      box-shadow: 0 8px 24px rgba(255, 107, 53, 0.3);
+    }
+
+    .btn.secondary:hover {
+      box-shadow: 0 12px 32px rgba(255, 107, 53, 0.4);
+    }
+
+    .btn.danger { 
+      background: linear-gradient(135deg, var(--danger), #c44569);
+      box-shadow: 0 8px 24px rgba(255, 71, 87, 0.3);
+    }
+
+    .btn.danger:hover {
+      box-shadow: 0 12px 32px rgba(255, 71, 87, 0.4);
+    }
+
+    .modal-backdrop {
+      position: absolute;
+      inset: 0;
+      background: rgba(10, 14, 26, 0.85);
+      backdrop-filter: blur(20px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      z-index: 200;
+      animation: fadeIn 0.3s ease-out;
+    }
+    
+    .modal-backdrop.show { 
+      display: flex; 
+    }
+
+    .quiz {
+      background: linear-gradient(135deg, var(--glass), rgba(26, 31, 46, 0.95));
+      backdrop-filter: blur(30px);
+      border: 1px solid var(--glass-border);
+      padding: 28px;
+      border-radius: 20px;
+      box-shadow: 
+        0 25px 80px var(--shadow),
+        inset 0 1px 0 rgba(255,255,255,0.1),
+        0 0 0 1px rgba(255,255,255,0.05);
+      width: min(92vw, 600px);
+      max-width: 600px;
+      animation: slideIn 0.5s ease-out;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .quiz::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 2px;
+      background: linear-gradient(90deg, var(--accent), var(--accent-2));
+      opacity: 0.6;
+    }
+
+    .quiz h3 { 
+      margin: 0 0 16px 0; 
+      font-size: 24px; 
+      font-weight: 800;
+      color: var(--accent);
+      text-shadow: 0 0 20px var(--accent-glow);
+    }
+    
+    .quiz p { 
+      margin: 0 0 20px 0; 
+      color: var(--text-secondary); 
+      font-size: 16px;
+      line-height: 1.6;
+      font-weight: 500;
+    }
+    
+    .options { 
+      display: grid; 
+      grid-template-columns: 1fr; 
+      gap: 12px; 
+    }
+    
+    .option {
+      background: linear-gradient(135deg, rgba(255,255,255,0.05), rgba(255,255,255,0.02));
+      border: 1px solid var(--glass-border);
+      color: var(--text);
+      padding: 16px 20px;
+      border-radius: 12px;
+      cursor: pointer;
+      text-align: left;
+      font-weight: 600;
+      font-size: 15px;
+      box-shadow: 
+        0 4px 16px var(--shadow),
+        inset 0 1px 0 rgba(255,255,255,0.05);
+      transition: all 0.3s ease;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .option::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: -100%;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent);
+      transition: left 0.5s ease;
+    }
+
+    .option:hover {
+      transform: translateY(-2px);
+      background: linear-gradient(135deg, rgba(255,255,255,0.1), rgba(255,255,255,0.05));
+      box-shadow: 
+        0 8px 24px var(--shadow),
+        inset 0 1px 0 rgba(255,255,255,0.1);
+    }
+
+    .option:hover::before {
+      left: 100%;
+    }
+
+    .option.correct { 
+      background: linear-gradient(135deg, rgba(0, 255, 136, 0.2), rgba(0, 255, 136, 0.1));
+      border-color: var(--success);
+      box-shadow: 
+        0 8px 24px rgba(0, 255, 136, 0.3),
+        inset 0 1px 0 rgba(0, 255, 136, 0.2);
+      animation: pulse 0.6s ease-out;
+    }
+    
+    .option.wrong { 
+      background: linear-gradient(135deg, rgba(255, 71, 87, 0.2), rgba(255, 71, 87, 0.1));
+      border-color: var(--danger);
+      box-shadow: 
+        0 8px 24px rgba(255, 71, 87, 0.3),
+        inset 0 1px 0 rgba(255, 71, 87, 0.2);
+      animation: shake 0.6s ease-out;
+    }
+
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+  <div id="gameRoot">
+    <canvas id="game"></canvas>
+
+    <div class="hud">
+      <div class="badge" id="scoreBadge">
+        <span class="label">Score</span>
+        <span class="value" id="score">0</span>
+      </div>
+      <div class="badge" id="livesBadge">
+        <span class="label">Lives</span>
+        <span class="danger" id="lives">3</span>
+      </div>
+    </div>
+
+    <div class="center-ui" id="startScreen">
+      <div class="panel">
+        <h2 class="title">🌍 Geo Ninja</h2>
+        <p class="subtitle">Master the art of slicing fruits while testing your geography knowledge! Slice fruits to score points, but beware of bombs. Hit a bomb and you'll face a geography challenge - answer correctly to continue, or face instant defeat!</p>
+        <div class="row">
+          <button class="btn" id="startBtn">🎮 Start Game</button>
+          <button class="btn secondary" id="howBtn">📖 How to Play</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="center-ui hidden" id="howScreen">
+      <div class="panel">
+        <h2 class="title">📖 How to Play</h2>
+        <ul style="text-align:left; margin: 16px 0 24px 0; padding-left: 20px; line-height: 1.8; color: var(--text-secondary); font-size: 15px;">
+          <li><strong style="color: var(--accent);">🎯 Slice fruits</strong> to increase your score and keep them from falling</li>
+          <li><strong style="color: var(--danger);">💣 Avoid bombs</strong> - hitting one triggers a geography quiz</li>
+          <li><strong style="color: var(--warning);">❌ Missing fruits</strong> costs lives - you have 3 to start</li>
+          <li><strong style="color: var(--success);">✅ Answer correctly</strong> in the quiz to continue playing</li>
+          <li><strong style="color: var(--danger);">❌ Wrong answer</strong> ends the game immediately</li>
+        </ul>
+        <div class="row">
+          <button class="btn" id="backBtn">← Back to Menu</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="center-ui hidden" id="gameOverScreen">
+      <div class="panel">
+        <h2 class="title">💀 Game Over</h2>
+        <p class="subtitle">Final Score: <strong id="finalScore" style="color: var(--accent); font-size: 24px;">0</strong></p>
+        <div class="row">
+          <button class="btn" id="restartBtn">🔄 Play Again</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-backdrop" id="quizModal">
+      <div class="quiz">
+        <h3 id="quizTitle">Geography Challenge</h3>
+        <p id="quizQuestion">Question text</p>
+        <div class="options" id="quizOptions"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Audio context for sound effects
+    let audioContext;
+    let masterGain;
+    
+    function initAudio() {
+      try {
+        audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        masterGain = audioContext.createGain();
+        masterGain.gain.value = 0.3;
+        masterGain.connect(audioContext.destination);
+      } catch (e) {
+        console.log('Audio not supported');
+      }
+    }
+
+    function playSound(frequency, duration, type = 'sine') {
+      if (!audioContext) return;
+      
+      const oscillator = audioContext.createOscillator();
+      const gainNode = audioContext.createGain();
+      
+      oscillator.type = type;
+      oscillator.frequency.setValueAtTime(frequency, audioContext.currentTime);
+      
+      gainNode.gain.setValueAtTime(0.1, audioContext.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + duration);
+      
+      oscillator.connect(gainNode);
+      gainNode.connect(masterGain);
+      
+      oscillator.start(audioContext.currentTime);
+      oscillator.stop(audioContext.currentTime + duration);
+    }
+
+    // DOM elements
+    const canvas = document.getElementById('game');
+    const ctx = canvas.getContext('2d');
+    const scoreEl = document.getElementById('score');
+    const livesEl = document.getElementById('lives');
+    const startScreen = document.getElementById('startScreen');
+    const howScreen = document.getElementById('howScreen');
+    const gameOverScreen = document.getElementById('gameOverScreen');
+    const finalScoreEl = document.getElementById('finalScore');
+    const startBtn = document.getElementById('startBtn');
+    const howBtn = document.getElementById('howBtn');
+    const backBtn = document.getElementById('backBtn');
+    const restartBtn = document.getElementById('restartBtn');
+    const quizModal = document.getElementById('quizModal');
+    const quizQuestionEl = document.getElementById('quizQuestion');
+    const quizOptionsEl = document.getElementById('quizOptions');
+
+    // Resize
+    function fitCanvas() {
+      const dpr = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
+      const rect = canvas.getBoundingClientRect();
+      canvas.width = Math.floor(rect.width * dpr);
+      canvas.height = Math.floor(rect.height * dpr);
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
+    window.addEventListener('resize', fitCanvas);
+
+    // Game state
+    let entities = [];
+    let particles = [];
+    let scorePopups = [];
+    let running = false;
+    let pausedForQuiz = false;
+    let gameOver = false;
+    let score = 0;
+    let lives = 3;
+    let lastSpawnAt = 0;
+    let spawnIntervalMs = 850;
+    let lastT = 0;
+    let combo = 0;
+    let maxCombo = 0;
+    let streak = 0;
+
+    // Swipe trail
+    const trailPoints = [];
+    const maxTrailPoints = 24;
+    const trailFadeMs = 350;
+    let isPointerDown = false;
+    let lastPointer = null;
+
+    // Questions pool
+    const questions = [
+      { q: 'What is the capital of France?', options: ['Madrid','Paris','Rome','Vienna'], answer: 'Paris' },
+      { q: 'Which is the largest ocean on Earth?', options: ['Atlantic Ocean','Indian Ocean','Pacific Ocean','Arctic Ocean'], answer: 'Pacific Ocean' },
+      { q: 'Mount Everest lies on the border of which two countries?', options: ['India and China','Nepal and China','Bhutan and Nepal','India and Nepal'], answer: 'Nepal and China' },
+      { q: 'Which river flows through Baghdad?', options: ['Euphrates','Tigris','Jordan','Nile'], answer: 'Tigris' },
+      { q: 'Which country has the most natural lakes?', options: ['Canada','Russia','Finland','United States'], answer: 'Canada' },
+      { q: 'The Great Barrier Reef is off the coast of which country?', options: ['Indonesia','Australia','Philippines','New Zealand'], answer: 'Australia' },
+      { q: 'What is the smallest country in the world?', options: ['Monaco','Vatican City','San Marino','Liechtenstein'], answer: 'Vatican City' },
+      { q: 'Which desert is the largest hot desert?', options: ['Sahara','Arabian','Gobi','Kalahari'], answer: 'Sahara' },
+      { q: 'What is the capital of Japan?', options: ['Seoul','Kyoto','Tokyo','Osaka'], answer: 'Tokyo' },
+      { q: 'Which continent has the most countries?', options: ['Africa','Asia','Europe','South America'], answer: 'Africa' },
+      { q: 'Which is the longest river in the world by most measures?', options: ['Amazon','Nile','Yangtze','Mississippi'], answer: 'Nile' },
+      { q: 'Which country does not border the Mediterranean Sea?', options: ['Portugal','Spain','Italy','Greece'], answer: 'Portugal' },
+      { q: 'Which US state has the most coastline?', options: ['Florida','California','Alaska','Hawaii'], answer: 'Alaska' },
+      { q: 'Which city is known as the City of Canals?', options: ['Venice','Amsterdam','Bangkok','Bruges'], answer: 'Venice' },
+      { q: 'What is the capital of Canada?', options: ['Toronto','Ottawa','Vancouver','Montreal'], answer: 'Ottawa' },
+      { q: 'Which country has Addis Ababa as its capital?', options: ['Ethiopia','Eritrea','Kenya','Somalia'], answer: 'Ethiopia' },
+      { q: 'Which strait separates Asia from North America?', options: ['Bering Strait','Bosporus','Strait of Malacca','Davis Strait'], answer: 'Bering Strait' },
+      { q: 'Which country is both in Europe and Asia?', options: ['Italy','Turkey','Morocco','Spain'], answer: 'Turkey' },
+      { q: 'What is the capital of New Zealand?', options: ['Auckland','Wellington','Christchurch','Hamilton'], answer: 'Wellington' },
+      { q: 'Which African lake is the source of the White Nile?', options: ['Lake Victoria','Lake Tanganyika','Lake Malawi','Lake Turkana'], answer: 'Lake Victoria' },
+    ];
+
+    function shuffle(arr) {
+      for (let i = arr.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+      }
+      return arr;
+    }
+
+    // Entity creation
+    function spawnEntity() {
+      const isBomb = Math.random() < 0.15; // 15% bombs
+      const radius = isBomb ? 24 : 20 + Math.random() * 12;
+      const x = 50 + Math.random() * (canvas.clientWidth - 100);
+      const y = canvas.clientHeight + 40;
+      const angle = (-Math.PI / 2) + (Math.random() * Math.PI / 3) - Math.PI / 6; // mostly upward
+      const speed = isBomb ? 6 + Math.random() * 2 : 8 + Math.random() * 3;
+      const vx = Math.cos(angle) * speed * (Math.random() < 0.5 ? -1 : 1);
+      const vy = -Math.abs(Math.sin(angle) * speed) - 8 - Math.random() * 3;
+      const fruitColors = ['#ff6b6b','#f7b267','#4ecdc4','#9b5de5','#64dfdf','#ff9ff3','#54a0ff','#5f27cd'];
+      const color = isBomb ? '#2b2b2b' : fruitColors[Math.floor(Math.random()*fruitColors.length)];
+      const spin = (Math.random() * 2 - 1) * 0.08;
+      const fruitTypes = ['🍎','🍊','🍌','🍇','🍓','🍑','🥝','🍍'];
+      const emoji = isBomb ? '💣' : fruitTypes[Math.floor(Math.random()*fruitTypes.length)];
+      entities.push({ 
+        id: crypto.randomUUID?.() || String(Math.random()), 
+        x, y, vx, vy, radius, color, 
+        type: isBomb ? 'bomb' : 'fruit', 
+        angle: 0, spin, sliced: false, 
+        time: performance.now(),
+        emoji,
+        originalY: y
+      });
+    }
+
+    function emitParticles(x, y, color, count) {
+      for (let i = 0; i < count; i++) {
+        const a = Math.random() * Math.PI * 2;
+        const sp = 3 + Math.random() * 4;
+        particles.push({ 
+          x, y, 
+          vx: Math.cos(a) * sp, 
+          vy: Math.sin(a) * sp - 2, 
+          life: 600 + Math.random()*500, 
+          born: performance.now(), 
+          color,
+          size: 2 + Math.random() * 3
+        });
+      }
+    }
+
+    function createScorePopup(x, y, points, color = '#00d4ff') {
+      scorePopups.push({
+        x, y,
+        points: `+${points}`,
+        color,
+        life: 1000,
+        born: performance.now(),
+        vy: -2
+      });
+    }
+
+    // Physics
+    const gravity = 0.3;
+    function update(dt) {
+      // entities
+      for (let i = entities.length - 1; i >= 0; i--) {
+        const e = entities[i];
+        e.vy += gravity * dt * 0.06;
+        e.x += e.vx * dt * 0.06;
+        e.y += e.vy * dt * 0.06;
+        e.angle += e.spin * dt * 0.06;
+        
+        // Add some floating animation
+        if (e.type === 'fruit') {
+          e.y += Math.sin(performance.now() * 0.003 + e.id.charCodeAt(0)) * 0.3;
+        }
+        
+        if (e.y - e.radius > canvas.clientHeight + 40) {
+          // fell off
+          if (e.type === 'fruit' && !e.sliced) {
+            lives -= 1;
+            combo = 0;
+            streak = 0;
+            playSound(200, 0.3, 'sawtooth');
+            updateHUD();
+            if (lives <= 0) {
+              triggerGameOver();
+            }
+          }
+          entities.splice(i, 1);
+        }
+      }
+
+      // particles
+      for (let i = particles.length - 1; i >= 0; i--) {
+        const p = particles[i];
+        p.vy += gravity * 0.02 * dt;
+        p.x += p.vx * 0.06 * dt;
+        p.y += p.vy * 0.06 * dt;
+        if (performance.now() - p.born > p.life) particles.splice(i, 1);
+      }
+
+      // score popups
+      for (let i = scorePopups.length - 1; i >= 0; i--) {
+        const popup = scorePopups[i];
+        popup.y += popup.vy * 0.06 * dt;
+        if (performance.now() - popup.born > popup.life) scorePopups.splice(i, 1);
+      }
+    }
+
+    function draw() {
+      ctx.clearRect(0, 0, canvas.clientWidth, canvas.clientHeight);
+
+      // draw entities
+      for (const e of entities) {
+        ctx.save();
+        ctx.translate(e.x, e.y);
+        ctx.rotate(e.angle);
+        
+        if (e.type === 'bomb') {
+          // bomb with glow effect
+          const glow = ctx.createRadialGradient(0, 0, 0, 0, 0, e.radius * 1.5);
+          glow.addColorStop(0, 'rgba(255, 71, 87, 0.3)');
+          glow.addColorStop(1, 'transparent');
+          ctx.fillStyle = glow;
+          ctx.beginPath();
+          ctx.arc(0, 0, e.radius * 1.5, 0, Math.PI * 2);
+          ctx.fill();
+          
+          // bomb body
+          const bombGrad = ctx.createRadialGradient(-e.radius/3, -e.radius/3, 0, 0, 0, e.radius);
+          bombGrad.addColorStop(0, '#4a4a4a');
+          bombGrad.addColorStop(0.7, e.color);
+          bombGrad.addColorStop(1, '#1a1a1a');
+          ctx.fillStyle = bombGrad;
+          ctx.beginPath();
+          ctx.arc(0, 0, e.radius, 0, Math.PI * 2);
+          ctx.fill();
+          
+          // fuse
+          ctx.strokeStyle = '#aaaaaa';
+          ctx.lineWidth = 4;
+          ctx.lineCap = 'round';
+          ctx.beginPath();
+          ctx.moveTo(0, -e.radius);
+          ctx.quadraticCurveTo(10, -e.radius-12, 0, -e.radius-20);
+          ctx.stroke();
+          
+          // fuse tip
+          ctx.fillStyle = '#ff6b35';
+          ctx.beginPath();
+          ctx.arc(0, -e.radius-20, 3, 0, Math.PI * 2);
+          ctx.fill();
+        } else {
+          // fruit with enhanced visuals
+          const glow = ctx.createRadialGradient(0, 0, 0, 0, 0, e.radius * 1.3);
+          glow.addColorStop(0, `${e.color}40`);
+          glow.addColorStop(1, 'transparent');
+          ctx.fillStyle = glow;
+          ctx.beginPath();
+          ctx.arc(0, 0, e.radius * 1.3, 0, Math.PI * 2);
+          ctx.fill();
+          
+          const grad = ctx.createRadialGradient(-e.radius/3, -e.radius/3, 0, 0, 0, e.radius);
+          grad.addColorStop(0, 'white');
+          grad.addColorStop(0.2, e.color);
+          grad.addColorStop(0.8, e.color);
+          grad.addColorStop(1, '#2a2a2a');
+          ctx.fillStyle = grad;
+          ctx.beginPath();
+          ctx.arc(0, 0, e.radius, 0, Math.PI * 2);
+          ctx.fill();
+          
+          // highlight
+          ctx.fillStyle = 'rgba(255,255,255,0.3)';
+          ctx.beginPath();
+          ctx.arc(-e.radius/3, -e.radius/3, e.radius/4, 0, Math.PI * 2);
+          ctx.fill();
+          
+          // emoji overlay
+          ctx.font = `${e.radius}px Arial`;
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(e.emoji, 0, 0);
+        }
+        ctx.restore();
+      }
+
+      // draw particles
+      for (const p of particles) {
+        const lifeRatio = Math.max(0, 1 - (performance.now() - p.born) / p.life);
+        ctx.globalAlpha = lifeRatio;
+        ctx.fillStyle = p.color;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.size || 2, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // particle glow
+        ctx.globalAlpha = lifeRatio * 0.5;
+        ctx.fillStyle = p.color;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, (p.size || 2) * 2, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.globalAlpha = 1;
+      }
+
+      // draw score popups
+      for (const popup of scorePopups) {
+        const lifeRatio = Math.max(0, 1 - (performance.now() - popup.born) / popup.life);
+        ctx.globalAlpha = lifeRatio;
+        ctx.font = 'bold 24px Arial';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillStyle = popup.color;
+        ctx.fillText(popup.points, popup.x, popup.y);
+        
+        // text shadow
+        ctx.globalAlpha = lifeRatio * 0.5;
+        ctx.fillStyle = 'rgba(0,0,0,0.5)';
+        ctx.fillText(popup.points, popup.x + 2, popup.y + 2);
+        ctx.globalAlpha = 1;
+      }
+
+      // draw trail with enhanced effects
+      if (trailPoints.length > 1) {
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        
+        // outer glow
+        for (let i = 1; i < trailPoints.length; i++) {
+          const a = trailPoints[i-1];
+          const b = trailPoints[i];
+          const age = performance.now() - b.t;
+          const alpha = Math.max(0, 1 - age / trailFadeMs);
+          const width = 15 * alpha + 4;
+          ctx.strokeStyle = `rgba(0, 212, 255, ${0.1 + alpha * 0.2})`;
+          ctx.lineWidth = width;
+          ctx.beginPath();
+          ctx.moveTo(a.x, a.y);
+          ctx.lineTo(b.x, b.y);
+          ctx.stroke();
+        }
+        
+        // main trail
+        for (let i = 1; i < trailPoints.length; i++) {
+          const a = trailPoints[i-1];
+          const b = trailPoints[i];
+          const age = performance.now() - b.t;
+          const alpha = Math.max(0, 1 - age / trailFadeMs);
+          const width = 8 * alpha + 2;
+          ctx.strokeStyle = `rgba(0, 212, 255, ${0.3 + alpha * 0.7})`;
+          ctx.lineWidth = width;
+          ctx.beginPath();
+          ctx.moveTo(a.x, a.y);
+          ctx.lineTo(b.x, b.y);
+          ctx.stroke();
+        }
+        
+        // inner core
+        for (let i = 1; i < trailPoints.length; i++) {
+          const a = trailPoints[i-1];
+          const b = trailPoints[i];
+          const age = performance.now() - b.t;
+          const alpha = Math.max(0, 1 - age / trailFadeMs);
+          const width = 3 * alpha + 1;
+          ctx.strokeStyle = `rgba(255, 255, 255, ${0.5 + alpha * 0.5})`;
+          ctx.lineWidth = width;
+          ctx.beginPath();
+          ctx.moveTo(a.x, a.y);
+          ctx.lineTo(b.x, b.y);
+          ctx.stroke();
+        }
+      }
+    }
+
+    function updateHUD() {
+      scoreEl.textContent = String(score);
+      livesEl.textContent = String(lives);
+    }
+
+    function gameLoop(t) {
+      if (!lastT) lastT = t;
+      const dt = Math.min(32, t - lastT);
+      lastT = t;
+
+      // Cleanup trail
+      while (trailPoints.length && performance.now() - trailPoints[0].t > trailFadeMs) {
+        trailPoints.shift();
+      }
+
+      if (running && !pausedForQuiz && !gameOver) {
+        if (!lastSpawnAt || performance.now() - lastSpawnAt > spawnIntervalMs) {
+          const count = 1 + (Math.random() < 0.35 ? 1 : 0);
+          for (let i = 0; i < count; i++) spawnEntity();
+          lastSpawnAt = performance.now();
+          // slightly accelerate spawns over time
+          spawnIntervalMs = Math.max(450, spawnIntervalMs - 1);
+        }
+        update(dt);
+      }
+      draw();
+      requestAnimationFrame(gameLoop);
+    }
+
+    function segmentCircleIntersect(p1, p2, c, r) {
+      // From https://stackoverflow.com/a/1088058 but simplified
+      const d = { x: p2.x - p1.x, y: p2.y - p1.y };
+      const f = { x: p1.x - c.x, y: p1.y - c.y };
+      const a = d.x*d.x + d.y*d.y;
+      const b = 2*(f.x*d.x + f.y*d.y);
+      const cval = f.x*f.x + f.y*f.y - r*r;
+      let discriminant = b*b - 4*a*cval;
+      if (discriminant < 0) return false;
+      discriminant = Math.sqrt(discriminant);
+      const t1 = (-b - discriminant) / (2*a);
+      const t2 = (-b + discriminant) / (2*a);
+      if ((t1 >= 0 && t1 <= 1) || (t2 >= 0 && t2 <= 1)) return true;
+      return false;
+    }
+
+    function handleSlice(p1, p2) {
+      let slicedCount = 0;
+      for (let i = entities.length - 1; i >= 0; i--) {
+        const e = entities[i];
+        if (e.sliced) continue;
+        if (segmentCircleIntersect(p1, p2, {x: e.x, y: e.y}, e.radius)) {
+          if (e.type === 'fruit') {
+            e.sliced = true;
+            slicedCount++;
+            streak++;
+            combo++;
+            
+            // Calculate score based on combo and streak
+            let points = 1;
+            if (combo >= 3) points = 2;
+            if (combo >= 5) points = 3;
+            if (streak >= 10) points += 1;
+            
+            score += points;
+            emitParticles(e.x, e.y, e.color, 20 + combo * 2);
+            createScorePopup(e.x, e.y, points, e.color);
+            
+            // Play different sounds based on combo
+            if (combo >= 5) {
+              playSound(800, 0.2, 'square');
+            } else if (combo >= 3) {
+              playSound(600, 0.2, 'sine');
+            } else {
+              playSound(400, 0.15, 'sine');
+            }
+            
+            entities.splice(i, 1);
+            updateHUD();
+          } else if (e.type === 'bomb') {
+            // Pause and quiz
+            entities.splice(i, 1);
+            emitParticles(e.x, e.y, '#ffafaf', 30);
+            playSound(150, 0.5, 'sawtooth');
+            openQuiz();
+            break;
+          }
+        }
+      }
+      
+      // Reset combo if no fruits were sliced
+      if (slicedCount === 0) {
+        combo = 0;
+      }
+    }
+
+    // Pointer handling
+    function addTrailPoint(x, y) {
+      trailPoints.push({ x, y, t: performance.now() });
+      if (trailPoints.length > maxTrailPoints) trailPoints.shift();
+    }
+    function getCanvasPos(e) {
+      const rect = canvas.getBoundingClientRect();
+      if ('touches' in e && e.touches[0]) {
+        return { x: e.touches[0].clientX - rect.left, y: e.touches[0].clientY - rect.top };
+      }
+      return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+    }
+    function onPointerDown(e) {
+      if (!running || pausedForQuiz || gameOver) return;
+      isPointerDown = true;
+      const p = getCanvasPos(e);
+      lastPointer = p;
+      addTrailPoint(p.x, p.y);
+    }
+    function onPointerMove(e) {
+      const p = getCanvasPos(e);
+      if (isPointerDown && lastPointer && running && !pausedForQuiz && !gameOver) {
+        handleSlice(lastPointer, p);
+      }
+      lastPointer = p;
+      addTrailPoint(p.x, p.y);
+    }
+    function onPointerUp() {
+      isPointerDown = false;
+      lastPointer = null;
+    }
+
+    canvas.addEventListener('mousedown', onPointerDown);
+    canvas.addEventListener('mousemove', onPointerMove);
+    window.addEventListener('mouseup', onPointerUp);
+    canvas.addEventListener('touchstart', (e) => { e.preventDefault(); onPointerDown(e); }, { passive: false });
+    canvas.addEventListener('touchmove', (e) => { e.preventDefault(); onPointerMove(e); }, { passive: false });
+    canvas.addEventListener('touchend', (e) => { e.preventDefault(); onPointerUp(e); }, { passive: false });
+
+    // Quiz
+    function openQuiz() {
+      pausedForQuiz = true;
+      const q = questions[Math.floor(Math.random() * questions.length)];
+      quizQuestionEl.textContent = q.q;
+      quizOptionsEl.innerHTML = '';
+      const shuffled = shuffle([...q.options]);
+      shuffled.forEach(opt => {
+        const btn = document.createElement('button');
+        btn.className = 'option';
+        btn.textContent = opt;
+        btn.onclick = () => {
+          if (opt === q.answer) {
+            btn.classList.add('correct');
+            setTimeout(closeQuizResume, 350);
+          } else {
+            btn.classList.add('wrong');
+            setTimeout(() => {
+              closeQuiz();
+              triggerGameOver();
+            }, 300);
+          }
+        };
+        quizOptionsEl.appendChild(btn);
+      });
+      quizModal.classList.add('show');
+    }
+
+    function closeQuizResume() {
+      closeQuiz();
+      pausedForQuiz = false;
+    }
+    function closeQuiz() {
+      quizModal.classList.remove('show');
+    }
+
+    // Game control
+    function resetGame() {
+      entities = [];
+      particles = [];
+      scorePopups = [];
+      score = 0;
+      lives = 3;
+      combo = 0;
+      maxCombo = 0;
+      streak = 0;
+      spawnIntervalMs = 850;
+      lastSpawnAt = 0;
+      lastT = 0;
+      running = false;
+      pausedForQuiz = false;
+      gameOver = false;
+      updateHUD();
+    }
+
+
+    function startGame() {
+      resetGame();
+      running = true;
+      startScreen.classList.add('hidden');
+      howScreen.classList.add('hidden');
+      gameOverScreen.classList.add('hidden');
+    }
+
+    function triggerGameOver() {
+      if (gameOver) return;
+      gameOver = true;
+      running = false;
+      pausedForQuiz = false;
+      finalScoreEl.textContent = String(score);
+      setTimeout(() => {
+        gameOverScreen.classList.remove('hidden');
+      }, 200);
+    }
+
+    // UI buttons
+    startBtn.addEventListener('click', () => startGame());
+    howBtn.addEventListener('click', () => {
+      startScreen.classList.add('hidden');
+      howScreen.classList.remove('hidden');
+    });
+    backBtn.addEventListener('click', () => {
+      howScreen.classList.add('hidden');
+      startScreen.classList.remove('hidden');
+    });
+    restartBtn.addEventListener('click', () => {
+      startGame();
+    });
+
+    // Init
+    fitCanvas();
+    updateHUD();
+    initAudio();
+    requestAnimationFrame(gameLoop);
+  </script>
+</body>
+</html>
