@@ -306,6 +306,26 @@
       box-shadow: 0 12px 32px rgba(255, 71, 87, 0.4);
     }
 
+    /* Toggle buttons for mode selection */
+    .btn.toggle {
+      background: linear-gradient(135deg, rgba(255,255,255,0.06), rgba(255,255,255,0.03));
+      color: var(--text);
+      border: 1px solid var(--glass-border);
+      text-transform: none;
+      min-width: 140px;
+    }
+    .btn.toggle.selected {
+      background: linear-gradient(135deg, var(--accent), #0099cc);
+      color: #fff;
+      border-color: transparent;
+    }
+    .btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      filter: grayscale(0.2);
+      box-shadow: none;
+    }
+
     .modal-backdrop {
       position: absolute;
       inset: 0;
@@ -454,9 +474,15 @@
       <div class="panel">
         <h2 class="title">🌍 Geo Ninja</h2>
         <p class="subtitle">Master the art of slicing fruits while testing your geography knowledge! Slice fruits to score points, but beware of bombs. Hit a bomb and you'll face a geography challenge - answer correctly to continue, or face instant defeat!</p>
+        <div class="row" id="modeRow" style="margin-top: 4px;">
+          <button class="btn toggle selected" data-mode="easy" id="modeEasy">Easy</button>
+          <button class="btn toggle" data-mode="medium" id="modeMedium">Medium</button>
+          <button class="btn toggle" data-mode="hard" id="modeHard">Hard</button>
+          <button class="btn toggle" data-mode="un" id="modeUN">United Nations</button>
+        </div>
         <div class="row">
-          <button class="btn" id="startBtn">🎮 Start Game</button>
-          <button class="btn secondary" id="howBtn">📖 How to Play</button>
+          <button class="btn" id="startBtn">Start Game</button>
+          <button class="btn secondary" id="howBtn">How to Play</button>
         </div>
       </div>
     </div>
@@ -581,29 +607,49 @@
     let isPointerDown = false;
     let lastPointer = null;
 
-    // Questions pool
-    const questions = [
-      { q: 'What is the capital of France?', options: ['Madrid','Paris','Rome','Vienna'], answer: 'Paris' },
-      { q: 'Which is the largest ocean on Earth?', options: ['Atlantic Ocean','Indian Ocean','Pacific Ocean','Arctic Ocean'], answer: 'Pacific Ocean' },
-      { q: 'Mount Everest lies on the border of which two countries?', options: ['India and China','Nepal and China','Bhutan and Nepal','India and Nepal'], answer: 'Nepal and China' },
-      { q: 'Which river flows through Baghdad?', options: ['Euphrates','Tigris','Jordan','Nile'], answer: 'Tigris' },
-      { q: 'Which country has the most natural lakes?', options: ['Canada','Russia','Finland','United States'], answer: 'Canada' },
-      { q: 'The Great Barrier Reef is off the coast of which country?', options: ['Indonesia','Australia','Philippines','New Zealand'], answer: 'Australia' },
-      { q: 'What is the smallest country in the world?', options: ['Monaco','Vatican City','San Marino','Liechtenstein'], answer: 'Vatican City' },
-      { q: 'Which desert is the largest hot desert?', options: ['Sahara','Arabian','Gobi','Kalahari'], answer: 'Sahara' },
-      { q: 'What is the capital of Japan?', options: ['Seoul','Kyoto','Tokyo','Osaka'], answer: 'Tokyo' },
-      { q: 'Which continent has the most countries?', options: ['Africa','Asia','Europe','South America'], answer: 'Africa' },
-      { q: 'Which is the longest river in the world by most measures?', options: ['Amazon','Nile','Yangtze','Mississippi'], answer: 'Nile' },
-      { q: 'Which country does not border the Mediterranean Sea?', options: ['Portugal','Spain','Italy','Greece'], answer: 'Portugal' },
-      { q: 'Which US state has the most coastline?', options: ['Florida','California','Alaska','Hawaii'], answer: 'Alaska' },
-      { q: 'Which city is known as the City of Canals?', options: ['Venice','Amsterdam','Bangkok','Bruges'], answer: 'Venice' },
-      { q: 'What is the capital of Canada?', options: ['Toronto','Ottawa','Vancouver','Montreal'], answer: 'Ottawa' },
-      { q: 'Which country has Addis Ababa as its capital?', options: ['Ethiopia','Eritrea','Kenya','Somalia'], answer: 'Ethiopia' },
-      { q: 'Which strait separates Asia from North America?', options: ['Bering Strait','Bosporus','Strait of Malacca','Davis Strait'], answer: 'Bering Strait' },
-      { q: 'Which country is both in Europe and Asia?', options: ['Italy','Turkey','Morocco','Spain'], answer: 'Turkey' },
-      { q: 'What is the capital of New Zealand?', options: ['Auckland','Wellington','Christchurch','Hamilton'], answer: 'Wellington' },
-      { q: 'Which African lake is the source of the White Nile?', options: ['Lake Victoria','Lake Tanganyika','Lake Malawi','Lake Turkana'], answer: 'Lake Victoria' },
-    ];
+    // Question pools by difficulty
+    const questionPools = {
+      easy: [
+        { q: 'What is the capital of France?', options: ['Madrid','Paris','Rome','Vienna'], answer: 'Paris' },
+        { q: 'Which is the largest ocean?', options: ['Atlantic','Indian','Pacific','Arctic'], answer: 'Pacific' },
+        { q: 'What is the capital of Japan?', options: ['Seoul','Kyoto','Tokyo','Osaka'], answer: 'Tokyo' },
+        { q: 'Which continent has the most countries?', options: ['Africa','Asia','Europe','South America'], answer: 'Africa' },
+        { q: 'What is the smallest country?', options: ['Monaco','Vatican City','San Marino','Liechtenstein'], answer: 'Vatican City' },
+        { q: 'The Great Barrier Reef is in which country?', options: ['Indonesia','Australia','Philippines','New Zealand'], answer: 'Australia' },
+        { q: 'Which desert is the largest hot desert?', options: ['Sahara','Arabian','Gobi','Kalahari'], answer: 'Sahara' },
+        { q: 'Which US state has the most coastline?', options: ['Florida','California','Alaska','Hawaii'], answer: 'Alaska' },
+      ],
+      medium: [
+        { q: 'Which river flows through Baghdad?', options: ['Euphrates','Tigris','Jordan','Nile'], answer: 'Tigris' },
+        { q: 'Mount Everest sits on the border of?', options: ['India-China','Nepal-China','Bhutan-Nepal','India-Nepal'], answer: 'Nepal-China' },
+        { q: 'Which country does not border the Mediterranean?', options: ['Portugal','Spain','Italy','Greece'], answer: 'Portugal' },
+        { q: 'What is the capital of Canada?', options: ['Toronto','Ottawa','Vancouver','Montreal'], answer: 'Ottawa' },
+        { q: 'Which city is known as the City of Canals?', options: ['Venice','Amsterdam','Bangkok','Bruges'], answer: 'Venice' },
+        { q: 'Which is the longest river by most measures?', options: ['Amazon','Nile','Yangtze','Mississippi'], answer: 'Nile' },
+      ],
+      hard: [
+        { q: 'Which African lake is the source of the White Nile?', options: ['Lake Victoria','Lake Tanganyika','Lake Malawi','Lake Turkana'], answer: 'Lake Victoria' },
+        { q: 'Which strait separates Asia from North America?', options: ['Bering Strait','Bosporus','Malacca','Davis Strait'], answer: 'Bering Strait' },
+        { q: 'Which country is transcontinental in Europe and Asia?', options: ['Italy','Turkey','Morocco','Spain'], answer: 'Turkey' },
+        { q: 'Which country has the most natural lakes?', options: ['Canada','Russia','Finland','United States'], answer: 'Canada' },
+        { q: 'Which is the largest island not a continent?', options: ['Borneo','New Guinea','Greenland','Sumatra'], answer: 'Greenland' },
+        { q: 'What is the capital of Kazakhstan?', options: ['Almaty','Astana (Nur-Sultan)','Tashkent','Bishkek'], answer: 'Astana (Nur-Sultan)' },
+      ],
+      un: [
+        { q: 'How many member states are in the United Nations?', options: ['191','193','195','197'], answer: '193' },
+        { q: 'Where is the UN headquarters located?', options: ['Geneva','New York','Vienna','Paris'], answer: 'New York' },
+        { q: 'Which of these is a principal UN organ?', options: ['World Bank','Security Council','OECD','Interpol'], answer: 'Security Council' },
+        { q: 'Which country is a permanent member of the UN Security Council?', options: ['Germany','India','United Kingdom','Japan'], answer: 'United Kingdom' },
+        { q: 'What does UNESCO focus on?', options: ['Education, Science, Culture','Health','Labor','Trade'], answer: 'Education, Science, Culture' },
+        { q: 'Which city hosts the UN Human Rights Council?', options: ['New York','Geneva','The Hague','Brussels'], answer: 'Geneva' },
+      ]
+    };
+
+    let currentMode = 'easy';
+    function getQuestion() {
+      const pool = questionPools[currentMode] || questionPools.easy;
+      return pool[Math.floor(Math.random() * pool.length)];
+    }
 
     function shuffle(arr) {
       for (let i = arr.length - 1; i > 0; i--) {
@@ -681,6 +727,24 @@
         if (e.type === 'fruit') {
           e.y += Math.sin(performance.now() * 0.003 + e.id.charCodeAt(0)) * 0.3;
         }
+
+        // bounce off left/right borders
+        const leftBound = e.radius + 6;
+        const rightBound = canvas.clientWidth - e.radius - 6;
+        if (e.x < leftBound) {
+          e.x = leftBound;
+          e.vx = Math.abs(e.vx);
+        } else if (e.x > rightBound) {
+          e.x = rightBound;
+          e.vx = -Math.abs(e.vx);
+        }
+
+        // bounce off top border
+        const topBound = e.radius + 6;
+        if (e.y < topBound) {
+          e.y = topBound;
+          e.vy = Math.abs(e.vy);
+        }
         
         if (e.y - e.radius > canvas.clientHeight + 40) {
           // fell off
@@ -691,7 +755,11 @@
             playSound(200, 0.3, 'sawtooth');
             updateHUD();
             if (lives <= 0) {
-              triggerGameOver();
+              // last chance quiz on miss, like bomb
+              openQuiz(true);
+              // avoid multiple quizzes triggering in same frame
+              entities.splice(i, 1);
+              break;
             }
           }
           entities.splice(i, 1);
@@ -1015,11 +1083,12 @@
     canvas.addEventListener('touchend', (e) => { e.preventDefault(); onPointerUp(e); }, { passive: false });
 
     // Quiz
-    function openQuiz() {
+    function openQuiz(isRevive = false) {
       pausedForQuiz = true;
-      const q = questions[Math.floor(Math.random() * questions.length)];
+      const q = getQuestion();
       quizQuestionEl.textContent = q.q;
       quizOptionsEl.innerHTML = '';
+      document.getElementById('quizTitle').textContent = isRevive ? 'Revive Challenge' : 'Geography Challenge';
       const shuffled = shuffle([...q.options]);
       shuffled.forEach(opt => {
         const btn = document.createElement('button');
@@ -1028,12 +1097,22 @@
         btn.onclick = () => {
           if (opt === q.answer) {
             btn.classList.add('correct');
-            setTimeout(closeQuizResume, 350);
+            setTimeout(() => {
+              if (isRevive) {
+                lives = 1; // revive with one life
+                updateHUD();
+              }
+              closeQuizResume();
+            }, 350);
           } else {
             btn.classList.add('wrong');
             setTimeout(() => {
               closeQuiz();
-              triggerGameOver();
+              if (isRevive) {
+                triggerGameOver();
+              } else {
+                triggerGameOver();
+              }
             }, 300);
           }
         };
@@ -1088,6 +1167,21 @@
         gameOverScreen.classList.remove('hidden');
       }, 200);
     }
+
+    // Mode selection
+    const modeButtons = [
+      document.getElementById('modeEasy'),
+      document.getElementById('modeMedium'),
+      document.getElementById('modeHard'),
+      document.getElementById('modeUN'),
+    ];
+    modeButtons.forEach(btn => {
+      btn.addEventListener('click', () => {
+        modeButtons.forEach(b => b.classList.remove('selected'));
+        btn.classList.add('selected');
+        currentMode = btn.dataset.mode || 'easy';
+      });
+    });
 
     // UI buttons
     startBtn.addEventListener('click', () => startGame());
