@@ -1,1 +1,1 @@
-A grography based fruit ninja game 
+A geography based fruit ninja game 
