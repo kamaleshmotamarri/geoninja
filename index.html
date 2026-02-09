@@ -107,9 +107,46 @@
       align-items: center;
       justify-content: space-between;
       gap: 16px;
-      pointer-events: none;
       z-index: 100;
     }
+    .hud-left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+      pointer-events: none;
+    }
+    .pause-btn {
+      pointer-events: auto;
+      background: linear-gradient(135deg, var(--glass), rgba(26, 31, 46, 0.8));
+      backdrop-filter: blur(20px);
+      border: 1px solid var(--glass-border);
+      color: var(--text);
+      width: 48px;
+      height: 48px;
+      border-radius: 14px;
+      cursor: pointer;
+      display: grid;
+      place-items: center;
+      box-shadow: 0 8px 32px var(--shadow), inset 0 1px 0 rgba(255,255,255,0.1);
+      transition: all 0.25s ease;
+    }
+    .pause-btn:hover {
+      background: var(--panel-hover);
+      transform: scale(1.08);
+      color: var(--accent);
+      box-shadow: 0 0 24px var(--accent-glow);
+    }
+    .pause-btn .pause-icon,
+    .pause-btn .play-icon {
+      width: 22px;
+      height: 22px;
+    }
+    .pause-btn .play-icon.hidden,
+    .pause-btn .pause-icon.hidden { display: none; }
+    #gameRoot:not(.game-playing) .pause-btn { opacity: 0.4; pointer-events: none; }
+    .combo-val { color: var(--warning); text-shadow: 0 0 10px rgba(255, 165, 2, 0.5); }
+    .pause-panel { min-width: 280px; }
 
     .badge {
       background: linear-gradient(135deg, var(--glass), rgba(26, 31, 46, 0.8));
@@ -340,8 +377,11 @@
     }
     
     .modal-backdrop.show { 
-      display: flex; 
+      display: flex;
+      pointer-events: auto;
     }
+    #pauseOverlay.hidden { display: none !important; }
+    #pauseOverlay:not(.hidden) { display: grid; pointer-events: auto; }
 
     .quiz {
       background: linear-gradient(135deg, var(--glass), rgba(26, 31, 46, 0.95));
@@ -460,13 +500,34 @@
     <canvas id="game"></canvas>
 
     <div class="hud">
-      <div class="badge" id="scoreBadge">
-        <span class="label">Score</span>
-        <span class="value" id="score">0</span>
+      <div class="hud-left">
+        <div class="badge" id="scoreBadge">
+          <span class="label">Score</span>
+          <span class="value" id="score">0</span>
+        </div>
+        <div class="badge" id="comboBadge">
+          <span class="label">Combo</span>
+          <span class="value combo-val" id="combo">0</span>
+        </div>
+        <div class="badge" id="livesBadge">
+          <span class="label">Lives</span>
+          <span class="danger" id="lives">7</span>
+        </div>
       </div>
-      <div class="badge" id="livesBadge">
-        <span class="label">Lives</span>
-        <span class="danger" id="lives">3</span>
+      <button type="button" class="pause-btn" id="pauseBtn" title="Pause" aria-label="Pause game">
+        <svg class="pause-icon" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+        <svg class="play-icon hidden" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+      </button>
+    </div>
+
+    <div class="center-ui modal-backdrop hidden" id="pauseOverlay">
+      <div class="panel pause-panel">
+        <h2 class="title">Paused</h2>
+        <p class="subtitle">Take a breath. Your progress is safe.</p>
+        <div class="row">
+          <button class="btn" id="resumeBtn">Resume</button>
+          <button class="btn secondary" id="quitPauseBtn">Quit to Menu</button>
+        </div>
       </div>
     </div>
 
@@ -506,7 +567,7 @@
     <div class="center-ui hidden" id="gameOverScreen">
       <div class="panel">
         <h2 class="title">Game Over</h2>
-        <p class="subtitle">Final Score: <strong id="finalScore" style="color: var(--accent); font-size: 24px;">0</strong></p>
+        <p class="subtitle">Final Score: <strong id="finalScore" style="color: var(--accent); font-size: 24px;">0</strong><br><span style="font-size: 14px; color: var(--text-secondary);">Level <span id="finalLevel">1</span> · Max combo <span id="finalCombo">0</span></span></p>
         <div class="row">
           <button class="btn" id="restartBtn">Play Again</button>
         </div>
@@ -570,9 +631,14 @@
     const howBtn = document.getElementById('howBtn');
     const backBtn = document.getElementById('backBtn');
     const restartBtn = document.getElementById('restartBtn');
+    const pauseBtn = document.getElementById('pauseBtn');
+    const pauseOverlay = document.getElementById('pauseOverlay');
+    const resumeBtn = document.getElementById('resumeBtn');
+    const quitPauseBtn = document.getElementById('quitPauseBtn');
     const quizModal = document.getElementById('quizModal');
     const quizQuestionEl = document.getElementById('quizQuestion');
     const quizOptionsEl = document.getElementById('quizOptions');
+    const comboEl = document.getElementById('combo');
 
     // Resize
     function fitCanvas() {
@@ -589,6 +655,7 @@
     let particles = [];
     let scorePopups = [];
     let running = false;
+    let paused = false;
     let pausedForQuiz = false;
     let gameOver = false;
     let score = 0;
@@ -599,6 +666,9 @@
     let combo = 0;
     let maxCombo = 0;
     let streak = 0;
+    let level = 1;
+    let nextStreakLifeReward = 12;
+    let screenShake = 0;
 
     // Swipe trail
     const trailPoints = [];
@@ -816,9 +886,29 @@
         vy: -2
       });
     }
+    function createTextPopup(x, y, text, color = '#00d4ff') {
+      scorePopups.push({
+        x, y,
+        points: text,
+        color,
+        life: 1400,
+        born: performance.now(),
+        vy: -1.5
+      });
+    }
 
     // Physics
     const gravity = 0.3;
+    function updateDifficultyProgression() {
+      const newLevel = Math.max(1, Math.floor(score / 25) + 1);
+      if (newLevel > level) {
+        level = newLevel;
+        createTextPopup(canvas.clientWidth / 2, canvas.clientHeight * 0.35, `LEVEL ${level}`, '#00d4ff');
+        playSound(720, 0.2, 'sine');
+      }
+      spawnIntervalMs = Math.max(420, 850 - (level - 1) * 35);
+    }
+
     function update(dt) {
       // entities
       for (let i = entities.length - 1; i >= 0; i--) {
@@ -857,12 +947,13 @@
             lives -= 1;
             combo = 0;
             streak = 0;
+            nextStreakLifeReward = 12;
+            screenShake = 10;
             playSound(200, 0.3, 'sawtooth');
             updateHUD();
             if (lives <= 0) {
-              // last chance quiz on miss, like bomb
+              screenShake = 16;
               openQuiz(true);
-              // avoid multiple quizzes triggering in same frame
               entities.splice(i, 1);
               break;
             }
@@ -889,7 +980,14 @@
     }
 
     function draw() {
-      ctx.clearRect(0, 0, canvas.clientWidth, canvas.clientHeight);
+      ctx.save();
+      if (screenShake > 0) {
+        const sx = (Math.random() - 0.5) * screenShake;
+        const sy = (Math.random() - 0.5) * screenShake;
+        ctx.translate(sx, sy);
+        screenShake = Math.max(0, screenShake - 1.2);
+      }
+      ctx.clearRect(-20, -20, canvas.clientWidth + 40, canvas.clientHeight + 40);
 
       // draw entities
       for (const e of entities) {
@@ -1051,11 +1149,17 @@
           ctx.stroke();
         }
       }
+      ctx.restore();
+      if (paused && running && !gameOver) {
+        ctx.fillStyle = 'rgba(10, 14, 26, 0.6)';
+        ctx.fillRect(0, 0, canvas.clientWidth, canvas.clientHeight);
+      }
     }
 
     function updateHUD() {
       scoreEl.textContent = String(score);
       livesEl.textContent = String(lives);
+      if (comboEl) comboEl.textContent = String(combo);
     }
 
     function gameLoop(t) {
@@ -1068,7 +1172,7 @@
         trailPoints.shift();
       }
 
-      if (running && !pausedForQuiz && !gameOver) {
+      if (running && !paused && !pausedForQuiz && !gameOver) {
         if (!lastSpawnAt || performance.now() - lastSpawnAt > spawnIntervalMs) {
           const count = 1 + (Math.random() < 0.35 ? 1 : 0);
           for (let i = 0; i < count; i++) spawnEntity();
@@ -1117,9 +1221,16 @@
             if (streak >= 10) points += 1;
             
             score += points;
+            screenShake = 2 + Math.min(combo, 6);
             emitParticles(e.x, e.y, e.color, 20 + combo * 2);
             createScorePopup(e.x, e.y, points, e.color);
-            
+            updateDifficultyProgression();
+            if (streak >= nextStreakLifeReward) {
+              lives = Math.min(7, lives + 1);
+              createTextPopup(canvas.clientWidth / 2, canvas.clientHeight * 0.4, `STREAK ${streak}! +1 LIFE`, '#00ff88');
+              nextStreakLifeReward += 12;
+              playSound(680, 0.2, 'triangle');
+            }
             // Play different sounds based on combo
             if (combo >= 5) {
               playSound(800, 0.2, 'square');
@@ -1132,8 +1243,8 @@
             entities.splice(i, 1);
             updateHUD();
           } else if (e.type === 'bomb') {
-            // Pause and quiz
             entities.splice(i, 1);
+            screenShake = 18;
             emitParticles(e.x, e.y, '#ffafaf', 30);
             playSound(150, 0.5, 'sawtooth');
             openQuiz();
@@ -1161,7 +1272,7 @@
       return { x: e.clientX - rect.left, y: e.clientY - rect.top };
     }
     function onPointerDown(e) {
-      if (!running || pausedForQuiz || gameOver) return;
+      if (!running || paused || pausedForQuiz || gameOver) return;
       isPointerDown = true;
       const p = getCanvasPos(e);
       lastPointer = p;
@@ -1169,7 +1280,7 @@
     }
     function onPointerMove(e) {
       const p = getCanvasPos(e);
-      if (isPointerDown && lastPointer && running && !pausedForQuiz && !gameOver) {
+      if (isPointerDown && lastPointer && running && !paused && !pausedForQuiz && !gameOver) {
         handleSlice(lastPointer, p);
       }
       lastPointer = p;
@@ -1235,6 +1346,23 @@
     }
 
     // Game control
+    function togglePause() {
+      if (!running || gameOver || pausedForQuiz) return;
+      paused = !paused;
+      if (paused) {
+        pauseOverlay.classList.remove('hidden');
+        pauseBtn.querySelector('.pause-icon').classList.add('hidden');
+        pauseBtn.querySelector('.play-icon').classList.remove('hidden');
+        pauseBtn.setAttribute('aria-label', 'Resume');
+      } else {
+        pauseOverlay.classList.add('hidden');
+        pauseBtn.querySelector('.pause-icon').classList.remove('hidden');
+        pauseBtn.querySelector('.play-icon').classList.add('hidden');
+        pauseBtn.setAttribute('aria-label', 'Pause game');
+        lastT = performance.now();
+      }
+    }
+
     function resetGame() {
       entities = [];
       particles = [];
@@ -1244,12 +1372,22 @@
       combo = 0;
       maxCombo = 0;
       streak = 0;
+      level = 1;
+      nextStreakLifeReward = 12;
+      screenShake = 0;
       spawnIntervalMs = 850;
       lastSpawnAt = 0;
       lastT = 0;
       running = false;
+      paused = false;
       pausedForQuiz = false;
       gameOver = false;
+      pauseOverlay.classList.add('hidden');
+      if (pauseBtn) {
+        pauseBtn.querySelector('.pause-icon').classList.remove('hidden');
+        pauseBtn.querySelector('.play-icon').classList.add('hidden');
+        pauseBtn.setAttribute('aria-label', 'Pause game');
+      }
       updateHUD();
     }
 
@@ -1257,6 +1395,7 @@
     function startGame() {
       resetGame();
       running = true;
+      document.getElementById('gameRoot').classList.add('game-playing');
       startScreen.classList.add('hidden');
       howScreen.classList.add('hidden');
       gameOverScreen.classList.add('hidden');
@@ -1267,7 +1406,12 @@
       gameOver = true;
       running = false;
       pausedForQuiz = false;
+      document.getElementById('gameRoot').classList.remove('game-playing');
       finalScoreEl.textContent = String(score);
+      const finalLevelEl = document.getElementById('finalLevel');
+      const finalComboEl = document.getElementById('finalCombo');
+      if (finalLevelEl) finalLevelEl.textContent = String(level);
+      if (finalComboEl) finalComboEl.textContent = String(maxCombo);
       setTimeout(() => {
         gameOverScreen.classList.remove('hidden');
       }, 200);
@@ -1300,6 +1444,15 @@
     });
     restartBtn.addEventListener('click', () => {
       startGame();
+    });
+    if (pauseBtn) pauseBtn.addEventListener('click', togglePause);
+    if (resumeBtn) resumeBtn.addEventListener('click', togglePause);
+    if (quitPauseBtn) quitPauseBtn.addEventListener('click', () => {
+      togglePause();
+      running = false;
+      document.getElementById('gameRoot').classList.remove('game-playing');
+      startScreen.classList.remove('hidden');
+      gameOverScreen.classList.add('hidden');
     });
 
     // Init
