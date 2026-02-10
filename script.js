@@ -778,8 +778,13 @@ function openQuiz(isRevive = false, callbacks = {}) {
         btn.textContent = opt;
         btn.onclick = () => {
             const optionButtons = quizOptionsEl.querySelectorAll('.option-btn');
-            optionButtons.forEach(option => option.disabled = true);
-            // reveal answer
+            optionButtons.forEach(option => {
+                option.disabled = true;
+                if (option.textContent === q.answer) {
+                    option.classList.add('correct');
+                }
+            });
+
             if (opt === q.answer) {
                 btn.classList.add('correct');
                 playSound(600, 0.2, 'sine');
@@ -792,12 +797,22 @@ function openQuiz(isRevive = false, callbacks = {}) {
             } else {
                 btn.classList.add('wrong');
                 playSound(150, 0.4, 'sawtooth');
+                // Explicitly tell the player the correct answer
+                const feedback = document.createElement('div');
+                feedback.className = 'quiz-feedback';
+                feedback.textContent = `Correct answer: ${q.answer}`;
+                // Remove any existing feedback before adding a new one
+                const oldFeedback = quizModal.querySelector('.quiz-feedback');
+                if (oldFeedback) oldFeedback.remove();
+                quizModal.appendChild(feedback);
                 setTimeout(() => {
+                    const existingFeedback = quizModal.querySelector('.quiz-feedback');
+                    if (existingFeedback) existingFeedback.remove();
                     quizModal.classList.remove('active');
                     pausedForQuiz = false;
                     lastT = performance.now();
                     if (typeof callbacks.onWrong === 'function') callbacks.onWrong();
-                }, 1000);
+                }, 2000);
             }
         };
         quizOptionsEl.appendChild(btn);

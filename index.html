@@ -771,6 +771,17 @@
       animation: shake 0.45s ease-out;
     }
 
+    .quiz-feedback {
+      margin-top: 12px;
+      font-size: 0.9rem;
+      color: var(--warning);
+    }
+
+    .quiz-footer {
+      margin-top: 18px;
+      text-align: right;
+    }
+
     .hidden {
       display: none !important;
     }
@@ -919,6 +930,7 @@
         <p class="subtitle">Final Score: <strong id="finalScore" class="final-score">0</strong><br><span class="final-meta">Level <span id="finalLevel">1</span> · Max combo <span id="finalCombo">0</span></span></p>
         <div class="row">
           <button class="btn" id="restartBtn">Play Again</button>
+          <button class="btn secondary" id="gameOverQuitBtn">Quit to Menu</button>
         </div>
       </div>
     </div>
@@ -984,6 +996,7 @@
     const pauseOverlay = document.getElementById('pauseOverlay');
     const resumeBtn = document.getElementById('resumeBtn');
     const quitPauseBtn = document.getElementById('quitPauseBtn');
+    const gameOverQuitBtn = document.getElementById('gameOverQuitBtn');
     const quizModal = document.getElementById('quizModal');
     const quizQuestionEl = document.getElementById('quizQuestion');
     const quizOptionsEl = document.getElementById('quizOptions');
@@ -1749,48 +1762,94 @@
     // Quiz
     function openQuiz(isRevive = false) {
       pausedForQuiz = true;
+
+      // Clear any previous feedback
+      const oldFeedback = quizModal.querySelector('.quiz-feedback');
+      if (oldFeedback) oldFeedback.remove();
+
       const q = getQuestion();
       quizQuestionEl.textContent = q.q;
       quizOptionsEl.innerHTML = '';
       document.getElementById('quizTitle').textContent = isRevive ? 'Revive Challenge' : 'Geography Challenge';
+
+      // Ensure we have a footer with a "Go Back" button
+      const quizInner = quizModal.querySelector('.quiz');
+      let footer = quizModal.querySelector('.quiz-footer');
+      if (!footer) {
+        footer = document.createElement('div');
+        footer.className = 'quiz-footer';
+        const backBtn = document.createElement('button');
+        backBtn.id = 'quizBackBtn';
+        backBtn.className = 'btn secondary';
+        backBtn.textContent = 'Go back';
+        footer.appendChild(backBtn);
+        quizInner.appendChild(footer);
+      }
+      const backBtnEl = footer.querySelector('#quizBackBtn');
+
+      let answered = false;
+      let answeredCorrect = false;
+
+      // Back button stays disabled until an answer is chosen
+      backBtnEl.disabled = true;
+      backBtnEl.onclick = () => {
+        if (!answered) return;
+        quizModal.classList.remove('show');
+        pausedForQuiz = false;
+        if (answeredCorrect) {
+          // Correct answer
+          if (isRevive) {
+            // Revive with full lives
+            lives = 7;
+            updateHUD();
+          }
+          // Otherwise just resume game
+        } else {
+          // Wrong answer always ends the run
+          triggerGameOver();
+        }
+      };
+
       const shuffled = shuffle([...q.options]);
       shuffled.forEach(opt => {
         const btn = document.createElement('button');
         btn.className = 'option';
         btn.textContent = opt;
         btn.onclick = () => {
+          if (answered) return; // ignore extra clicks
+          answered = true;
+
+          // Disable all options after first choice and highlight correct one
+          const allBtns = quizOptionsEl.querySelectorAll('button');
+          allBtns.forEach(b => {
+            b.disabled = true;
+            if (b.textContent === q.answer) {
+              b.classList.add('correct');
+            }
+          });
+
           if (opt === q.answer) {
+            answeredCorrect = true;
             btn.classList.add('correct');
-            setTimeout(() => {
-              if (isRevive) {
-                lives = 7; // revive with full lives
-                updateHUD();
-              }
-              closeQuizResume();
-            }, 350);
           } else {
+            answeredCorrect = false;
             btn.classList.add('wrong');
-            setTimeout(() => {
-              closeQuiz();
-              if (isRevive) {
-              triggerGameOver();
-              } else {
-                triggerGameOver();
-              }
-            }, 300);
+
+            // Show explicit correct-answer feedback
+            const feedback = document.createElement('div');
+            feedback.className = 'quiz-feedback';
+            feedback.textContent = `Correct answer: ${q.answer}`;
+            const existing = quizModal.querySelector('.quiz-feedback');
+            if (existing) existing.remove();
+            quizInner.appendChild(feedback);
           }
+
+          // Enable the back button so the player can continue when ready
+          backBtnEl.disabled = false;
         };
         quizOptionsEl.appendChild(btn);
       });
       quizModal.classList.add('show');
-    }
-
-    function closeQuizResume() {
-      closeQuiz();
-      pausedForQuiz = false;
-    }
-    function closeQuiz() {
-      quizModal.classList.remove('show');
     }
 
     // Game control
@@ -1896,6 +1955,15 @@
     restartBtn.addEventListener('click', () => {
       startGame();
     });
+    if (gameOverQuitBtn) {
+      gameOverQuitBtn.addEventListener('click', () => {
+        // Return to main menu from game over
+        resetGame();
+        document.getElementById('gameRoot').classList.remove('game-playing');
+        startScreen.classList.remove('hidden');
+        gameOverScreen.classList.add('hidden');
+      });
+    }
     if (pauseBtn) pauseBtn.addEventListener('click', togglePause);
     if (resumeBtn) resumeBtn.addEventListener('click', togglePause);
     if (quitPauseBtn) quitPauseBtn.addEventListener('click', () => {
